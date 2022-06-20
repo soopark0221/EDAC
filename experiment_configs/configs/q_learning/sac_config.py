@@ -8,7 +8,11 @@ import torch
 import lifelong_rl.torch.pytorch_util as ptu
 from torch.nn import functional as F
 
+import os
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 def get_config(
         variant,
         expl_env,

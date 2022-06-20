@@ -67,6 +67,7 @@ class SimpleReplayBuffer(ReplayBuffer):
 
     def add_sample(self, observation, action, reward, terminal,
                    next_observation, env_info, **kwargs):
+        '''
         self._observations[self._top] = self.obs_preproc(observation)
         self._actions[self._top] = action
         self._rewards[self._top] = reward
@@ -75,6 +76,21 @@ class SimpleReplayBuffer(ReplayBuffer):
 
         for key in self._env_info_keys:
             self._env_infos[key][self._top] = env_info[key]
+        '''
+        #print(observation.shape, action.shape, reward.shape, terminal.shape)
+        obs = np.expand_dims(self.obs_preproc(observation), axis=0)
+        act = np.expand_dims(action, axis=0)
+        rew = np.expand_dims(reward, axis=0)
+        ter = np.expand_dims(terminal, axis=0)
+        next_obs = np.expand_dims(self.obs_preproc(next_observation), axis=0)
+        
+        self._observations = np.concatenate((self._observations, obs), axis=0)
+        self._actions = np.concatenate((self._actions, act), axis=0)
+        self._rewards = np.concatenate((self._rewards, rew), axis=0)
+        self._terminals = np.concatenate((self._terminals, ter), axis=0)
+        self._next_obs = np.concatenate((self._next_obs, next_obs), axis=0)
+        for key in self._env_info_keys:
+            self._env_infos[key] = np.concatenate((self._env_infos[keys],env_info[key]), axis=0)
         self._advance()
 
     def add_sample_with_logprob(self, observation, action, reward, terminal,

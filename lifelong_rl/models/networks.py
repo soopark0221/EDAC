@@ -332,7 +332,7 @@ class ParallelizedEnsembleFlattenMLP(nn.Module):
         self.layer_norm = layer_norm
 
         self.fcs = []
-
+        print(f'***********we are training q function************')
         if batch_norm:
             raise NotImplementedError
 
@@ -401,6 +401,11 @@ class ParallelizedEnsembleFlattenMLP(nn.Module):
         preds = self.forward(*inputs)
         
         return torch.min(preds, dim=0)[0]
+
+    def sample_max(self, *inputs):
+        preds = self.forward(*inputs)
+        
+        return torch.max(preds, dim=0)[0]
 
     def fit_input_stats(self, data, mask=None):
         raise NotImplementedError

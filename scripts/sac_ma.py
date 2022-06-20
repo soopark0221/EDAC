@@ -1,6 +1,6 @@
-from experiment_utils.launch_experiment import launch_experiment
+from experiment_utils.launch_experiment_ma import launch_experiment
 from experiment_configs.configs.q_learning.sac_config import get_config
-from experiment_configs.algorithms.offline import get_offline_algorithm
+from experiment_configs.algorithms.offpolicy import get_offpolicy_algorithm
 
 import argparse
 import os 
@@ -9,7 +9,7 @@ import os
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='SAC',
+        algorithm='SAC_MA_max',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),
@@ -38,6 +38,8 @@ def main(args):
             num_epochs=3000,
             num_eval_steps_per_epoch=1000,
             num_trains_per_train_loop=1000,
+            num_expl_steps_per_train_loop=500,
+            min_num_steps_before_training=500,
             max_path_length=1000,
             batch_size=256,
             save_snapshot_freq=3000, # save last epoch
@@ -97,7 +99,7 @@ def main(args):
     # Launch experiment
     launch_experiment(variant=variant,
                       get_config=get_config,
-                      get_offline_algorithm=get_offline_algorithm,
+                      get_offpolicy_algorithm=get_offpolicy_algorithm,
                       **experiment_kwargs)
 
 

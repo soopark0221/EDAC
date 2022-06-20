@@ -8,6 +8,7 @@ from typing import Iterable
 from lifelong_rl.core.rl_algorithms.batch.batch_rl_algorithm import BatchRLAlgorithm
 from lifelong_rl.core.rl_algorithms.batch.mb_batch_rl_algorithm import MBBatchRLAlgorithm
 from lifelong_rl.core.rl_algorithms.offline.offline_rl_algorithm import OfflineRLAlgorithm
+from lifelong_rl.core.rl_algorithms.offline.offpolicy_rl_algorithm import OffpolicyRLAlgorithm
 from lifelong_rl.core.rl_algorithms.offline.mb_offline_rl_algorithm import OfflineMBRLAlgorithm
 from lifelong_rl.core.rl_algorithms.online.online_rl_algorithm import OnlineRLAlgorithm
 from lifelong_rl.core.rl_algorithms.online.mbrl_algorithm import MBRLAlgorithm
@@ -72,6 +73,14 @@ class TorchOfflineRLAlgorithm(OfflineRLAlgorithm):
         for net in self.trainer.networks:
             net.train(mode)
 
+class TorchOffpolicyRLAlgorithm(OffpolicyRLAlgorithm):
+    def to(self, device):
+        for net in self.trainer.networks:
+            net.to(device)
+
+    def training_mode(self, mode):
+        for net in self.trainer.networks:
+            net.train(mode)
 
 class TorchOfflineMBRLAlgorithm(OfflineMBRLAlgorithm):
     def to(self, device):
