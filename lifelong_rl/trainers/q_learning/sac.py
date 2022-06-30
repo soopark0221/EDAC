@@ -143,9 +143,10 @@ class SACTrainer(TorchTrainer):
         else:
             alpha_loss = 0
             alpha = 1
-
-        #q_new_actions = self.qfs.sample(obs, new_obs_actions)
-        q_new_actions = self.qfs.sample_max(obs, new_obs_actions)
+        
+        #q_new_actions = self.qfs.sample_mean(obs, new_obs_actions)
+        q_new_actions = self.qfs.sample(obs, new_obs_actions)
+        #q_new_actions = self.qfs.sample_max(obs, new_obs_actions)
 
         policy_loss = (alpha * log_pi - q_new_actions).mean()
 
@@ -172,9 +173,9 @@ class SACTrainer(TorchTrainer):
         )
 
         if not self.max_q_backup:
-            
-            #target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
-            target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
+            #target_q_values = self.target_qfs.sample_mean(next_obs, new_next_actions)
+            target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
+            #target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
 
             if not self.deterministic_backup:
                 target_q_values -= alpha * new_log_pi

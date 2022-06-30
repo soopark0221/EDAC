@@ -9,7 +9,7 @@ import os
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='SAC_MA_max',
+        algorithm='SAC_2agents_min',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),
@@ -38,8 +38,8 @@ def main(args):
             num_epochs=3000,
             num_eval_steps_per_epoch=1000,
             num_trains_per_train_loop=1000,
-            num_expl_steps_per_train_loop=500,
-            min_num_steps_before_training=500,
+            num_expl_steps_per_train_loop=100,
+            min_num_steps_before_training=100,
             max_path_length=1000,
             batch_size=256,
             save_snapshot_freq=3000, # save last epoch
