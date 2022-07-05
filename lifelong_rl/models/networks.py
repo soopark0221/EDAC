@@ -402,6 +402,12 @@ class ParallelizedEnsembleFlattenMLP(nn.Module):
         
         return torch.min(preds, dim=0)[0]
 
+    def sample_single(self, *inputs):
+        preds = self.forward(*inputs)
+        n = len(preds)
+        from random import randrange
+        return preds[randrange(n)]
+
     def sample_max(self, *inputs):
         preds = self.forward(*inputs)
         
@@ -409,8 +415,21 @@ class ParallelizedEnsembleFlattenMLP(nn.Module):
 
     def sample_mean(self, *inputs):
         preds = self.forward(*inputs)
-        
         return torch.mean(preds, dim=0)
+
+    def sample_var(self, *inputs):
+        preds = self.forward(*inputs)
+        #print(preds.shape[1])
+        delta = torch.zeros(preds.shape[1])
+        #print(delta)
+        for i in range(len(preds)):
+            for j in range(len(preds)):
+                if j>i:
+                    dis = torch.linalg.norm((preds[i]-preds[j]), axis=-1)
+                    #print(dis)
+                    delta = torch.maximum(delta, dis.to('cpu'))        
+        return torch.min(preds, dim=0)[0], torch.max(delta)
+
 
     def fit_input_stats(self, data, mask=None):
         raise NotImplementedError
