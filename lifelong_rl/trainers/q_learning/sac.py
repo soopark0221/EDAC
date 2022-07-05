@@ -41,7 +41,6 @@ class SACTrainer(TorchTrainer):
             deterministic_backup=False,
             policy_eval_start=0,
             eta=-1.0,
-
             num_qs=10,
             replay_buffer=None,
     ):
@@ -63,7 +62,6 @@ class SACTrainer(TorchTrainer):
         self.eta = eta
 
         self.replay_buffer = replay_buffer
-
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
             if target_entropy:
@@ -116,7 +114,7 @@ class SACTrainer(TorchTrainer):
         return new_obs_actions.detach(), new_obs_log_pi.view(
             obs.shape[0], num_actions, 1).detach()
 
-    def train_from_torch(self, batch, indices):
+    def train_from_torch(self, batch, indices, Qmin=True, eta=1.0):
         obs= batch['observations']
         next_obs = batch['next_observations']
         actions = batch['actions']
@@ -144,10 +142,14 @@ class SACTrainer(TorchTrainer):
             alpha_loss = 0
             alpha = 1
         
+        if Qmin == True:
         #q_new_actions = self.qfs.sample_mean(obs, new_obs_actions)
-        q_new_actions = self.qfs.sample(obs, new_obs_actions)
+            q_new_actions = self.qfs.sample(obs, new_obs_actions)
         #q_new_actions = self.qfs.sample_max(obs, new_obs_actions)
-
+        #q_new_actions = self.qfs.sample_single(obs, new_obs_actions)
+        #q_new_actions, var = self.qfs.sample_single_var(obs, new_obs_actions)
+        else: 
+            q_new_actions = self.qfs.sample_max(obs, new_obs_actions)
         policy_loss = (alpha * log_pi - q_new_actions).mean()
 
         if self._num_train_steps < self.policy_eval_start:
@@ -173,12 +175,19 @@ class SACTrainer(TorchTrainer):
         )
 
         if not self.max_q_backup:
+            if Qmin == True:
             #target_q_values = self.target_qfs.sample_mean(next_obs, new_next_actions)
-            target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
+                target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
             #target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
+            #target_q_values = self.target_qfs.sample_single(next_obs, new_next_actions)
+            #target_q_values, var = self.target_qfs.sample_single_var(next_obs, new_next_actions)
+            #print(var)
 
+            else:
+                target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
             if not self.deterministic_backup:
                 target_q_values -= alpha * new_log_pi
+                #target_q_values *= 0.5/var
         else:
             # if self.max_q_backup
             next_actions_temp, _ = self._get_policy_actions(
@@ -207,7 +216,8 @@ class SACTrainer(TorchTrainer):
             qs_pred_grads = (1 - masks) * qs_pred_grads
             grad_loss = torch.mean(torch.sum(qs_pred_grads, dim=(1, 2))) / (self.num_qs - 1)
             
-            qfs_loss_total += self.eta * grad_loss
+            #qfs_loss_total += self.eta * grad_loss
+            qfs_loss_total += eta * grad_loss
 
         if self.use_automatic_entropy_tuning and not self.deterministic_backup:
             self.alpha_optimizer.zero_grad()

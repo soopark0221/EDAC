@@ -79,7 +79,7 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
             #    alpha=curr_alpha,
             #)
             gt.stamp('evaluation sampling')
-
+            eta = 1.0*(0.7**(epoch / self.num_epochs))
             for i, agent in enumerate(self.trainers):
                 self.eval_data_collectors[i].collect_new_paths(
                 max_path_length=self.max_path_length,
@@ -87,6 +87,8 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                 discard_incomplete_paths=True,
                 alpha=curr_alpha,
                 )
+                Qmin = True if i//2==0 else False
+                
                 for _ in range(self.num_train_loops_per_epoch):
                     new_expl_paths = self.expl_data_collectors[i].collect_new_paths(
                     self.max_path_length,
@@ -105,7 +107,7 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                         train_data, indices = self.replay_buffer.random_batch(
                             self.batch_size, return_indices=True)
                         #self.trainer.train(train_data, indices)
-                        agent.train(train_data, indices)
+                        agent.train(train_data, indices, Qmin=Qmin, eta=eta)
 
 
                 self._end_epoch(epoch, agent, self.eval_data_collectors[i], self.expl_data_collectors[i])

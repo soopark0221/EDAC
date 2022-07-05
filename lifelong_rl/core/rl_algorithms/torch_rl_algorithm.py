@@ -100,10 +100,10 @@ class TorchTrainer(Trainer, metaclass=abc.ABCMeta):
     def __init__(self):
         self._num_train_steps = 0
 
-    def train(self, np_batch, indices):
+    def train(self, np_batch, indices, Qmin, eta):
         self._num_train_steps += 1
         batch = np_to_pytorch_batch(np_batch)
-        self.train_from_torch(batch, indices)
+        self.train_from_torch(batch, indices, Qmin, eta)
 
     def get_diagnostics(self):
         return OrderedDict([
