@@ -399,23 +399,45 @@ class ParallelizedEnsembleFlattenMLP(nn.Module):
 
     def sample(self, *inputs):
         preds = self.forward(*inputs)
-        
         return torch.min(preds, dim=0)[0]
 
     def sample_single(self, *inputs):
-        preds = self.forward(*inputs)
-        n = len(preds)
-        from random import randrange
-        return preds[randrange(n)]
+        preds = self.forward(*inputs)  # num_ensemble * num_batch * 1
+        num_ensemble, num_batch = preds.shape[0], preds_shape[1]
+        preds = preds.squeeze(axis=2).T
+        idx = np.random.randint(0, num_ensemble, num_batch)
+        idx_expand = np.expand_dims(idx, axis=1)
+        out = np.take_along_axis(preds, idx_expand, axis=1)  # num_batch * 1
+        #for i in range(len(idx)):
+        #    out.append(preds[idx[i]][i])
+        #out = torch.unsqueeze(torch.tensor(out), dim=-1)
+        return out.to('cuda')
 
     def sample_max(self, *inputs):
         preds = self.forward(*inputs)
-        
         return torch.max(preds, dim=0)[0]
 
     def sample_mean(self, *inputs):
         preds = self.forward(*inputs)
         return torch.mean(preds, dim=0)
+
+    def sample_single_weighted(self, *inputs):
+        # preds = preds.numpy() #make numpy
+        # preds.sort(axis=0) # sort in ascending order        
+        preds = self.forward(*inputs)  # num_ensemble * num_batch * 1
+        num_ensemble, num_batch = preds.shape[0], preds.shape[1]
+        preds = preds.squeeze(axis=2).T
+        preds.sort(axis=1)  # sort in ascending order      
+        #idx = np.random.randint(0, num_ensemble, num_batch)
+        normalize_constant = num_ensemble * (num_ensemble+1)/2
+        idx = np.random.choice(np.arange(0, num_ensemble, dtype=int), size=(num_batch, 1),  p=np.arange(num_ensemble, 0, step=-1, dtype=int)/normalize_constant)
+        #idx_expand = np.expand_dims(idx, axis=1)
+        #print(preds.shape, idx.shape)
+        out = np.take_along_axis(preds, idx, axis=1)  # num_batch * 1
+        #print(out.shape)
+        return out.to('cuda')
+
+
 
     def sample_var(self, *inputs):
         preds = self.forward(*inputs)
@@ -430,6 +452,8 @@ class ParallelizedEnsembleFlattenMLP(nn.Module):
                     delta = torch.maximum(delta, dis.to('cpu'))        
         return torch.min(preds, dim=0)[0], torch.max(delta)
 
+    def weighted_sampling(self, preds):
+        return
 
     def fit_input_stats(self, data, mask=None):
         raise NotImplementedError
