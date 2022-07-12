@@ -143,11 +143,10 @@ class SACTrainer(TorchTrainer):
             alpha = 1
         
         if Qmin == True:
-        #q_new_actions = self.qfs.sample_mean(obs, new_obs_actions)
+            #q_new_actions = self.qfs.sample_mean(obs, new_obs_actions)
             q_new_actions = self.qfs.sample(obs, new_obs_actions)
-        #q_new_actions = self.qfs.sample_max(obs, new_obs_actions)
-        #q_new_actions = self.qfs.sample_single(obs, new_obs_actions)
-        #q_new_actions, var = self.qfs.sample_single_var(obs, new_obs_actions)
+            #q_new_actions = self.qfs.sample_max(obs, new_obs_actions)
+            #q_new_actions = self.qfs.sample_single_weighted(obs, new_obs_actions)
         else: 
             q_new_actions = self.qfs.sample_max(obs, new_obs_actions)
         policy_loss = (alpha * log_pi - q_new_actions).mean()
@@ -176,18 +175,15 @@ class SACTrainer(TorchTrainer):
 
         if not self.max_q_backup:
             if Qmin == True:
-            #target_q_values = self.target_qfs.sample_mean(next_obs, new_next_actions)
+                #target_q_values = self.target_qfs.sample_mean(next_obs, new_next_actions)
                 target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
-            #target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
-            #target_q_values = self.target_qfs.sample_single(next_obs, new_next_actions)
-            #target_q_values, var = self.target_qfs.sample_single_var(next_obs, new_next_actions)
-            #print(var)
+                #target_q_values = self.target_qfs.sample_single_weighted(next_obs, new_next_actions)
+                #target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
 
             else:
                 target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
             if not self.deterministic_backup:
                 target_q_values -= alpha * new_log_pi
-                #target_q_values *= 0.5/var
         else:
             # if self.max_q_backup
             next_actions_temp, _ = self._get_policy_actions(

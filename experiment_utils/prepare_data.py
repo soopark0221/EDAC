@@ -41,7 +41,20 @@ def load_hdf5(env, replay_buffer, args):
 
     terminals = np.expand_dims(np.squeeze(refined_dataset['terminals']), 1)
     dataset_size = observations.shape[0]
-    
+
+
+    # limited by offline buffer size 
+    # should match the size to the max buffer size
+    empty = 1000000-dataset_size #max buffer size - datasize
+    if empty > 0:
+        ob_dummy = np.zeros((empty, observations.shape[1]), dtype=int)
+        ac_dummy = np.zeros((empty, actions.shape[1]), dtype=int)
+        observations = np.concatenate((observations, ob_dummy), axis=0)
+        next_obs = np.concatenate((next_obs, ob_dummy), axis=0)
+        actions = np.concatenate((actions, ac_dummy), axis=0)
+        rewards = np.concatenate((rewards, np.zeros((empty, 1), dtype=int)), axis=0)
+        terminals = np.concatenate((terminals, np.zeros((empty, 1), dtype=int)), axis=0)
+
     replay_buffer._observations = observations
     replay_buffer._next_obs = next_obs
     replay_buffer._actions = actions

@@ -24,7 +24,7 @@ def experiment(
         variant,
 
         # Experiment config
-        experiment_config,
+        experiment_config, #include config, algorithm
 
         # Misc arguments
         exp_postfix='',
@@ -68,10 +68,12 @@ def experiment(
         torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
+
+
     """
     Environment setup
     """
-    expl_env, env_infos = make_env(variant['env_name'],
+    expl_env, env_infos = make_env(variant['env_name'], offline=variant['offline'],
                                     **variant.get('env_kwargs', {}))
 
     obs_dim = get_dim(expl_env.observation_space)
@@ -84,12 +86,13 @@ def experiment(
         replay_buffer = EnvReplayBuffer(variant['replay_buffer_size'],
                                         expl_env)
 
-    eval_env, _ = make_env(variant['env_name'],
+    eval_env, _ = make_env(variant['env_name'], offline=variant['offline'],
                            **variant.get('env_kwargs', {}))
     """
     Import offline data from d4rl
     """
-    load_hdf5(expl_env, replay_buffer, data_args)
+    if variant['offline'] is True:
+        load_hdf5(expl_env, replay_buffer, data_args)
     obs_dim = replay_buffer.obs_dim()
     """
     Experiment-specific configuration
@@ -110,26 +113,30 @@ def experiment(
     """
     Path collectors for sampling from environment
     """
-
     collector_type = variant.get('collector_type', 'step')
 
-    if collector_type == 'gcr':
-        eval_path_collector = GoalConditionedReplayStepCollector(
-            eval_env,
-            config['evaluation_policy'],
-            replay_buffer,
-            variant['resample_goal_every'],
-        )
-    else:
-        eval_path_collector = MdpPathCollector(
-            eval_env,
-            config['evaluation_policy'],
-        )
+    eval_path_collector_list = []
+    expl_path_collector_list = []
 
-        expl_path_collector = MdpPathCollector(
-            expl_env,
-            config['exploration_policy'],
-        )       
+    for i in range(variant['num_agents']):
+        if collector_type == 'gcr':
+            eval_path_collector = GoalConditionedReplayStepCollector(
+                eval_env,
+                config['evaluation_policy'],
+                replay_buffer,
+                variant['resample_goal_every'],
+            )
+        else:
+            eval_path_collector = MdpPathCollector(
+                eval_env,
+                config['evaluation_policy_list'][i],
+            )
+            eval_path_collector_list.append(eval_path_collector)
+            expl_path_collector = MdpPathCollector(
+                expl_env,
+                config['exploration_policy_list'][i],
+            )       
+            expl_path_collector_list.append(expl_path_collector)
     """
     Finish timer
     """
@@ -142,8 +149,8 @@ def experiment(
 
     offpolicy_algorithm = experiment_config['get_offpolicy_algorithm'](
         config,
-        eval_path_collector=eval_path_collector,
-        expl_path_collector=expl_path_collector,
+        eval_path_collector_list=eval_path_collector_list,
+        expl_path_collector_list=expl_path_collector_list,
     )
     offpolicy_algorithm.to(ptu.device)
     offpolicy_algorithm.train()

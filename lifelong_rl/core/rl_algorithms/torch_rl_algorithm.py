@@ -75,12 +75,14 @@ class TorchOfflineRLAlgorithm(OfflineRLAlgorithm):
 
 class TorchOffpolicyRLAlgorithm(OffpolicyRLAlgorithm):
     def to(self, device):
-        for net in self.trainer.networks:
-            net.to(device)
+        for t in self.trainer_list:
+            for net in t.networks:
+                net.to(device)
 
     def training_mode(self, mode):
-        for net in self.trainer.networks:
-            net.train(mode)
+        for t in self.trainer_list:
+            for net in t.networks:
+                net.train(mode)
 
 class TorchOfflineMBRLAlgorithm(OfflineMBRLAlgorithm):
     def to(self, device):

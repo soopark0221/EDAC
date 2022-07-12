@@ -4,16 +4,16 @@ from experiment_configs.algorithms.offpolicy import get_offpolicy_algorithm
 
 import argparse
 import os 
-#os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='SAC_2agents_min',
+        algorithm='SAC_2max', #'SAC_buffer_3agents_maxminmax_gym_expl1000_buffer_1M',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),
-        replay_buffer_size=int(2e6),
+        replay_buffer_size=args.buffer_size, #int(1e6),
         reward_mean=False,  # added for easy config checking
         reward_std=-1.0,  # added for easy config checking
         policy_kwargs=dict(
@@ -36,10 +36,10 @@ def main(args):
         ),
         offline_kwargs=dict(
             num_epochs=3000,
-            num_eval_steps_per_epoch=1000,
+            num_eval_steps_per_epoch=5000, #1000
             num_trains_per_train_loop=1000,
-            num_expl_steps_per_train_loop=100,
-            min_num_steps_before_training=100,
+            num_expl_steps_per_train_loop=1000,
+            min_num_steps_before_training=1000,
             max_path_length=1000,
             batch_size=256,
             save_snapshot_freq=3000, # save last epoch
@@ -72,12 +72,20 @@ def main(args):
     # EDAC
     variant['trainer_kwargs']['eta'] = args.eta
 
+    # MA
+    variant['offline']=args.offline
+    variant['num_agents']=args.num_agents
+
     # experiment name
     experiment_kwargs['exp_postfix'] = ''
     
     exp_postfix = '_{}'.format(args.num_qs)
     
-    exp_postfix += '_plr{:.4f}_qlr{:.4f}'.format(args.plr, args.qlr)
+    #learning rate 
+    #exp_postfix += '_plr{:.4f}_qlr{:.4f}'.format(args.plr, args.qlr)
+    exp_postfix += f'_{args.num_agents}agents'
+    exp_postfix += f'_buffer{variant["replay_buffer_size"]}'
+    exp_postfix += f'_offline{args.offline}'
     if variant['trainer_kwargs']['max_q_backup']:
         exp_postfix += '_maxq'
     if variant['trainer_kwargs']['deterministic_backup']:
@@ -147,7 +155,21 @@ if __name__ == '__main__':
     parser.add_argument("--reward_std",
                         action='store_true',
                         help='normalize rewards to 1 std')
-
+    #agents
+    parser.add_argument("--num_agents",
+                        default=2,
+                        type=int,
+                        help='number of agents')
+    # offline dataset (d4rl)
+    parser.add_argument("--offline",
+                        default=True,
+                        help='use offline data')
+    # replay buffer
+    parser.add_argument("--buffer_size",
+                        default=int(1e6),
+                        type=int,
+                        help='buffer_size')
+    
     args = parser.parse_args()
 
     main(args)

@@ -15,7 +15,7 @@ def make_env(env_name, terminates=True, offline=True, **kwargs):
     Offline reinforcement learning w/ d4rl
     TODO: set env_infos['mujoco']=False for non-mujoco tasks
     """
-    if offline:
+    if offline is True:
         print('Using d4rl')
         env = gym.make(env_name)
         if any(phrase in env_name for phrase in ['halfcheetah', 'hopper', 'walker2d', 'antmaze']):
