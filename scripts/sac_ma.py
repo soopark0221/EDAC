@@ -4,12 +4,13 @@ from experiment_configs.algorithms.offpolicy import get_offpolicy_algorithm
 
 import argparse
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+import datetime
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='SAC_2max', #'SAC_buffer_3agents_maxminmax_gym_expl1000_buffer_1M',
+        algorithm='SAC_2min', #'SAC_buffer_3agents_maxminmax_gym_expl1000_buffer_1M',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),
@@ -36,7 +37,7 @@ def main(args):
         ),
         offline_kwargs=dict(
             num_epochs=3000,
-            num_eval_steps_per_epoch=5000, #1000
+            num_eval_steps_per_epoch=1000, #1000
             num_trains_per_train_loop=1000,
             num_expl_steps_per_train_loop=1000,
             min_num_steps_before_training=1000,
@@ -79,13 +80,13 @@ def main(args):
     # experiment name
     experiment_kwargs['exp_postfix'] = ''
     
-    exp_postfix = '_{}'.format(args.num_qs)
+    exp_postfix = '_{}qfs'.format(args.num_qs)
     
     #learning rate 
     #exp_postfix += '_plr{:.4f}_qlr{:.4f}'.format(args.plr, args.qlr)
     exp_postfix += f'_{args.num_agents}agents'
-    exp_postfix += f'_buffer{variant["replay_buffer_size"]}'
-    exp_postfix += f'_offline{args.offline}'
+    # exp_postfix += f'_buffer{variant["replay_buffer_size"]} # not that crucial info?
+    exp_postfix += f'_offline{args.offline}'    # rather
     if variant['trainer_kwargs']['max_q_backup']:
         exp_postfix += '_maxq'
     if variant['trainer_kwargs']['deterministic_backup']:
@@ -96,6 +97,8 @@ def main(args):
         exp_postfix += '_mean'
     if args.reward_std > 0:
         exp_postfix += '_std'
+    today=datetime.datetime.today()
+    exp_postfix+=f'_time_{today.month}_{today.day}_{today.hour+9}:{today.minute}' # to avoid overwriting, time=KST
 
     experiment_kwargs['exp_postfix'] = exp_postfix
 
@@ -109,6 +112,7 @@ def main(args):
                       get_config=get_config,
                       get_offpolicy_algorithm=get_offpolicy_algorithm,
                       **experiment_kwargs)
+    
 
 
 if __name__ == '__main__':

@@ -51,10 +51,11 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
         self.post_epoch_funcs = []
 
     def _train(self):
-        for epoch in gt.timed_for(
-                range(self._start_epoch, self.num_epochs),
-                save_itrs=True,
-        ):
+        for epoch in range(self.num_epochs): 
+                # gt.timed_for(
+                # range(self._start_epoch, self.num_epochs),
+                # save_itrs=True,
+                # ):
             '''
             if epoch == 0 and self.min_num_steps_before_training > 0:
                 init_expl_paths = self.expl_data_collector.collect_new_paths(
@@ -77,50 +78,58 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                 else:
                     curr_alpha = None
 
-            gt.stamp('evaluation sampling')
+            
             eta = 1.0*(0.7**(epoch / self.num_epochs))
-            for i, agent in enumerate(self.trainer_list):
+            for i in gt.timed_for(              
+                range(len(self.trainer_list)),
+                save_itrs=True,  ):
+                agent=self.trainer_list[i]      # LOG for each trainer        
+                # enumerate(self.trainer_list):
+                
                 self.eval_data_collector_list[i].collect_new_paths(
                 max_path_length=self.max_path_length,
                 num_samples=self.num_eval_steps_per_epoch,
                 discard_incomplete_paths=True,
                 alpha=curr_alpha,
                 )
+                gt.stamp('evaluation sampling',unique=False)
                 #Qmin = True if i//2==1 else False # max-min-max-min
                 #Qmin = True if i//2==0 else False # min-max-min
-                Qmin = False
+                Qmin = True
                 for _ in range(self.num_train_loops_per_epoch):
                     new_expl_paths = self.expl_data_collector_list[i].collect_new_paths(
                     self.max_path_length,
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
                     )
-                    gt.stamp('exploration sampling', unique=False)
+                    gt.stamp('exploration sampling',unique=False)
                     
                     #print(f' replay buffer {self.replay_buffer}')
                     #print(f' new expl path is {new_expl_paths}')
                     self.replay_buffer.add_paths(new_expl_paths)
-                    gt.stamp('data storing', unique=False)
+                    gt.stamp('data storing',unique=False)
                     self.training_mode(True)
                     for _ in range(self.num_trains_per_train_loop):
                         train_data, indices = self.replay_buffer.random_batch(
                             self.batch_size, return_indices=True)
                         agent.train(train_data, indices, Qmin=Qmin, eta=eta)
                     self.training_mode(False)
+                    gt.stamp('training',unique=False)
                 self._end_epoch(epoch, agent, self.eval_data_collector_list[i], self.expl_data_collector_list[i])
-            gt.stamp('training')
+
 
     def train(self, start_epoch=0):
         self._start_epoch = start_epoch
         self._train()
 
     def _end_epoch(self, epoch, agent, eval_data_collector, expl_data_collector):
+
         snapshot = self._get_snapshot(agent)
         for k, v in snapshot.items():
             if self.save_snapshot_freq is not None and \
                     (epoch + 1) % self.save_snapshot_freq == 0:
                 logger.save_itr_params(epoch + 1, snapshot[k], prefix='offline_itr')
-            gt.stamp('saving', unique=False)
+            gt.stamp('saving',unique=False)
 
         self._log_stats(epoch, agent, eval_data_collector, expl_data_collector)
 
@@ -162,7 +171,7 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
         return diag_dict
 
     def _log_stats(self, epoch, agent, eval_data_collector, expl_data_collector):
-        logger.log("Epoch {} finished".format(epoch), with_timestamp=True)
+        logger.log("Epoch {} of agent {} finished".format(epoch, self.trainer_list.index(agent)), with_timestamp=True) #agent
         """
         Replay Buffer
         """
@@ -171,12 +180,13 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
         """
         Trainer
         """
-        training_diagnostics = self._get_training_diagnostics_dict(agent)
-        print(f'training diag {training_diagnostics.keys}')
-        for prefix in training_diagnostics:
-            print(prefix)
-            logger.record_dict(training_diagnostics[prefix],
-                               prefix=prefix + '/')
+        # DO NOT PRINT UNNECESSARY LOGS
+        # training_diagnostics = self._get_training_diagnostics_dict(agent)
+        # print(f'training diag {training_diagnostics.keys}')
+        # for prefix in training_diagnostics:
+        #     print(prefix)
+        #     logger.record_dict(training_diagnostics[prefix],
+        #                        prefix=prefix + '/')
 
         """
         Exploration
@@ -217,8 +227,9 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
         Misc
         """
         # time stamp logging early for csv format
-        gt.stamp('logging', unique=False)
+        gt.stamp('logging',unique=False) # Changed
         logger.record_dict(_get_epoch_timings())
+        logger.record_tabular('Agent', self.trainer_list.index(agent))
         logger.record_tabular('Epoch', epoch)
         logger.dump_tabular(with_prefix=False, with_timestamp=False)
         #gt.stamp('logging', unique=False)
