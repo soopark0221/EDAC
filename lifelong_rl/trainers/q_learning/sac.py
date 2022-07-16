@@ -174,14 +174,8 @@ class SACTrainer(TorchTrainer):
         )
 
         if not self.max_q_backup:
-            if Qmin == True:
-                #target_q_values = self.target_qfs.sample_mean(next_obs, new_next_actions)
-                target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
-                #target_q_values = self.target_qfs.sample_single_weighted(next_obs, new_next_actions)
-                #target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
+            target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
 
-            else:
-                target_q_values = self.target_qfs.sample_max(next_obs, new_next_actions)
             if not self.deterministic_backup:
                 target_q_values -= alpha * new_log_pi
         else:

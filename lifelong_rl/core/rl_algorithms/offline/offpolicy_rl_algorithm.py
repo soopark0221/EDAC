@@ -87,8 +87,8 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                 alpha=curr_alpha,
                 )
                 #Qmin = True if i//2==1 else False # max-min-max-min
-                #Qmin = True if i//2==0 else False # min-max-min
-                Qmin = False
+                Qmin = True if i//2==0 else False # min-max-min
+                #Qmin = False
                 for _ in range(self.num_train_loops_per_epoch):
                     new_expl_paths = self.expl_data_collector_list[i].collect_new_paths(
                     self.max_path_length,
@@ -97,9 +97,6 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                     )
                     gt.stamp('exploration sampling', unique=False)
                     
-                    #print(f' replay buffer {self.replay_buffer}')
-                    #print(f' new expl path is {new_expl_paths}')
-                    self.replay_buffer.add_paths(new_expl_paths)
                     gt.stamp('data storing', unique=False)
                     self.training_mode(True)
                     for _ in range(self.num_trains_per_train_loop):

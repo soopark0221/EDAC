@@ -67,13 +67,11 @@ def get_config(
     num_p_layers = variant['policy_kwargs']['num_p_layers']
 
     num_agents = variant['num_agents']  # XXX
-    qfs_list = []
-    target_qfs_list = []
     policy_list = []
     trainer_list =[]
     eval_policy_list = []
-    for i in range(num_agents):
-        qfs, target_qfs = ppp.group_init(
+
+    qfs, target_qfs = ppp.group_init(
         2,
         ParallelizedEnsembleFlattenMLP,
         ensemble_size=num_qs,
@@ -82,10 +80,7 @@ def get_config(
         output_size=1,
         layer_norm=None,
         )
-        qfs_list.append(qfs)
-        target_qfs_list.append(target_qfs)
-
-        
+    for i in range(num_agents):
         policy = TanhGaussianPolicy(
             obs_dim=obs_dim,
             action_dim=action_dim,
@@ -103,7 +98,6 @@ def get_config(
             **variant['trainer_kwargs'],
         )
         trainer_list.append(trainer)
-
         eval_policy = MakeDeterministic(policy)
         eval_policy_list.append(eval_policy)
 
@@ -122,7 +116,6 @@ def get_config(
             exploration_env=expl_env,
             evaluation_env=eval_env,
             replay_buffer=replay_buffer,  # XXX double check: using the same replay_buffer
-            qfs_list=qfs_list,  # XXX qfs_list
         ))
     config['algorithm_kwargs'] = variant.get('algorithm_kwargs', dict())
 
