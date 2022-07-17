@@ -45,7 +45,7 @@ def load_hdf5(env, replay_buffer, args):
 
     # limited by offline buffer size 
     # should match the size to the max buffer size
-    empty = 1000000-dataset_size #max buffer size - datasize
+    empty = replay_buffer.max_replay_buffer_size()-dataset_size  # max buffer size - datasize
     if empty > 0:
         ob_dummy = np.zeros((empty, observations.shape[1]), dtype=int)
         ac_dummy = np.zeros((empty, actions.shape[1]), dtype=int)
@@ -63,7 +63,7 @@ def load_hdf5(env, replay_buffer, args):
 
     replay_buffer._size = dataset_size
     replay_buffer.total_entries = dataset_size
-    replay_buffer._top = replay_buffer._size
+    replay_buffer._top = dataset_size  # replay_buffer._size # fill empty replay buffer
 
     # Work for state observations
     obs_dim = observations.shape[-1]
