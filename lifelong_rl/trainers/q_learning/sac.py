@@ -162,14 +162,26 @@ class SACTrainer(TorchTrainer):
         """
         QF Loss
         """
+        new_next_actions_list = []
+        new_log_pi_list = []
+        new_next_actions, _, _, new_log_pi, *_ = self.policy(
+            next_obs,
+            reparameterize=False,
+            return_log_prob=True,
+            )
+        new_next_actions_list.append(new_next_actions)
+        new_log_pi_list.append(new_log_pi)
         # (num_qs, batch_size, output_size)
         if Qtrain == True:
             qs_pred = self.qfs(obs, actions)
-            new_next_actions, _, _, new_log_pi, *_ = self.policy(
-                next_obs,
-                reparameterize=False,
-                return_log_prob=True,
-            )
+            new_next_actions = self.torch_average(new_next_actions_list)
+            new_log_pi = self.torch_average(new_log_pi_list)
+
+            #new_next_actions, _, _, new_log_pi, *_ = self.policy(
+            #    next_obs,
+            #    reparameterize=False,
+            #    return_log_prob=True,
+            #)
 
             if not self.max_q_backup:
                 target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
@@ -270,6 +282,10 @@ class SACTrainer(TorchTrainer):
             if self.use_automatic_entropy_tuning:
                 self.eval_statistics['Alpha'] = alpha.item()
                 self.eval_statistics['Alpha Loss'] = alpha_loss.item()
+
+    def torch_average(self, torch_list):
+        out = torch.stack(torch_list)
+        return torch.mean(out, axis = 0)
 
     def try_update_target_networks(self):
         if self._num_train_steps % self.target_update_period == 0:
