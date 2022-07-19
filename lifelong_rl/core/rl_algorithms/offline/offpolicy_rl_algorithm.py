@@ -5,6 +5,7 @@ import abc
 from lifelong_rl.core import logger
 from lifelong_rl.core.rl_algorithms.rl_algorithm import _get_epoch_timings
 from lifelong_rl.util import eval_util
+from lifelong_rl.trainers.q_learning import sac_qf
 
 
 class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
@@ -50,6 +51,7 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
         self._start_epoch = 0
         self.post_epoch_funcs = []
 
+    
     def _train(self):
         for epoch in range(self.num_epochs): 
             for agent in self.trainer_list:  # TODO : check the first one
@@ -65,8 +67,8 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                 for j in range(self.num_trains_per_train_loop):
                     train_data, indices = self.replay_buffer.random_batch(
                         self.batch_size, return_indices=True)
-                    Qmin = True
                     self.training_mode(True)
+                    policy_list = []
                     for i in gt.timed_for(range(len(self.trainer_list)), save_itrs=True,  ):
                         if j == 0:
                             new_expl_paths = self.expl_data_collector_list[i].collect_new_paths(
@@ -84,13 +86,16 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                                 )         
                         agent=self.trainer_list[i]      # LOG for each trainer             
                         Qmin = True if i//2==0 else False # min-max-min           
-                        Qtrain = True if i == len(self.trainer_list)-1 else False
-                        agent.train(train_data, indices, Qmin=Qmin, eta=eta, Qtrain=Qtrain)        
-                        #agent.train_policy(train_data, indices, Qmin=Qmin, eta=eta)
-                    #self.trainer_list[0].train_qf(train_data, indices, Qmin=True, eta=eta)
-                    #for i in range(len(self.trainer_list)):
-                    #    self.trainer_list[i].train_main()
+                        agent.train(train_data, indices, Qmin=Qmin, eta=eta)       
+                        policy_list.append(agent.get_policy()) 
+                        qfs = agent.get_qfs()
+                        target_qfs = agent.get_target_qfs()
+                    qfs, target_qfs = sac_qf.train_qfs(train_data, policy_list, qfs, target_qfs, curr_alpha)
                     self.training_mode(False)
+                    for agent in self.trainer_list:
+                        agent.set_qfs(qfs)
+                        agent.set_target_qfs(target_qfs)
+                        agent.try_update_target_networks()
 
                 gt.stamp('training',unique=False)
             for i in range(len(self.trainer_list)):

@@ -60,7 +60,6 @@ class SACTrainer(TorchTrainer):
         self.max_q_backup = max_q_backup
         self.deterministic_backup = deterministic_backup
         self.eta = eta
-
         self.replay_buffer = replay_buffer
         self.use_automatic_entropy_tuning = use_automatic_entropy_tuning
         if self.use_automatic_entropy_tuning:
@@ -91,6 +90,24 @@ class SACTrainer(TorchTrainer):
         self._need_to_update_eval_statistics = True
         self.policy_eval_start = policy_eval_start
 
+    def get_policy(self):
+        return self.policy
+    
+    def get_qfs(self):
+        return self.qfs
+    
+    def get_target_qfs(self):
+        return self.target_qfs
+
+    def get_alpha(self):
+        return self.alpha
+
+    def set_target_qfs(self, target_qfs):
+        self.target_qfs = target_qfs
+
+    def set_qfs(self, qfs):
+        self.qfs = qfs
+
     def _get_tensor_values(self, obs, actions, network=None):
         action_shape = actions.shape[0]
         obs_shape = obs.shape[0]
@@ -114,7 +131,7 @@ class SACTrainer(TorchTrainer):
         return new_obs_actions.detach(), new_obs_log_pi.view(
             obs.shape[0], num_actions, 1).detach()
 
-    def train_from_torch(self, batch, indices, Qmin=True, eta=1.0, Qtrain=False):
+    def train_from_torch(self, batch, indices, Qmin=True, eta=1.0):
         obs= batch['observations']
         next_obs = batch['next_observations']
         actions = batch['actions']
@@ -127,7 +144,6 @@ class SACTrainer(TorchTrainer):
         """
         Policy and Alpha Loss
         """
-
         new_obs_actions, policy_mean, policy_log_std, log_pi, *_ = self.policy(
             obs,
             reparameterize=True,
@@ -138,6 +154,7 @@ class SACTrainer(TorchTrainer):
             alpha_loss = -(self.log_alpha *
                            (log_pi + self.target_entropy).detach()).mean()
             alpha = self.log_alpha.exp()
+            self.alpha = alpha  # alpha store
         else:
             alpha_loss = 0
             alpha = 1
@@ -157,68 +174,7 @@ class SACTrainer(TorchTrainer):
             """
             policy_log_prob = self.policy.get_log_probs(obs.detach(), actions)
             policy_loss = (alpha * log_pi - policy_log_prob).mean()
-
             
-        """
-        QF Loss
-        """
-        new_next_actions_list = []
-        new_log_pi_list = []
-        new_next_actions, _, _, new_log_pi, *_ = self.policy(
-            next_obs,
-            reparameterize=False,
-            return_log_prob=True,
-            )
-        new_next_actions_list.append(new_next_actions)
-        new_log_pi_list.append(new_log_pi)
-        # (num_qs, batch_size, output_size)
-        if Qtrain == True:
-            qs_pred = self.qfs(obs, actions)
-            new_next_actions = self.torch_average(new_next_actions_list)
-            new_log_pi = self.torch_average(new_log_pi_list)
-
-            #new_next_actions, _, _, new_log_pi, *_ = self.policy(
-            #    next_obs,
-            #    reparameterize=False,
-            #    return_log_prob=True,
-            #)
-
-            if not self.max_q_backup:
-                target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
-
-                if not self.deterministic_backup:
-                    target_q_values -= alpha * new_log_pi
-            else:
-                # if self.max_q_backup
-                next_actions_temp, _ = self._get_policy_actions(
-                    next_obs, num_actions=10, network=self.policy)
-                target_q_values = self._get_tensor_values(
-                    next_obs, next_actions_temp,
-                    network=self.qfs).max(2)[0].min(0)[0]
-
-            future_values = (1. - terminals) * self.discount * target_q_values
-            q_target = self.reward_scale * rewards + future_values
-            qfs_loss = self.qf_criterion(qs_pred, q_target.detach().unsqueeze(0))
-            qfs_loss = qfs_loss.mean(dim=(1, 2)).sum()
-
-            qfs_loss_total = qfs_loss
-            
-            if self.eta > 0:
-                obs_tile = obs.unsqueeze(0).repeat(self.num_qs, 1, 1)
-                actions_tile = actions.unsqueeze(0).repeat(self.num_qs, 1, 1).requires_grad_(True)
-                qs_preds_tile = self.qfs(obs_tile, actions_tile)
-                qs_pred_grads, = torch.autograd.grad(qs_preds_tile.sum(), actions_tile, retain_graph=True, create_graph=True)
-                qs_pred_grads = qs_pred_grads / (torch.norm(qs_pred_grads, p=2, dim=2).unsqueeze(-1) + 1e-10)
-                qs_pred_grads = qs_pred_grads.transpose(0, 1)
-                
-                qs_pred_grads = torch.einsum('bik,bjk->bij', qs_pred_grads, qs_pred_grads)
-                masks = torch.eye(self.num_qs, device=ptu.device).unsqueeze(dim=0).repeat(qs_pred_grads.size(0), 1, 1)
-                qs_pred_grads = (1 - masks) * qs_pred_grads
-                grad_loss = torch.mean(torch.sum(qs_pred_grads, dim=(1, 2))) / (self.num_qs - 1)
-                
-                #qfs_loss_total += self.eta * grad_loss
-                qfs_loss_total += eta * grad_loss
-
         if self.use_automatic_entropy_tuning and not self.deterministic_backup:
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
@@ -228,12 +184,6 @@ class SACTrainer(TorchTrainer):
         policy_loss.backward()
         self.policy_optimizer.step()
 
-        if Qtrain == True:
-            self.qfs_optimizer.zero_grad()
-            qfs_loss_total.backward()
-            self.qfs_optimizer.step()
-
-        self.try_update_target_networks()
         """
         Save some statistics for eval
         """
@@ -242,6 +192,7 @@ class SACTrainer(TorchTrainer):
 
             policy_loss = ptu.get_numpy(log_pi - q_new_actions).mean()
             policy_avg_std = ptu.get_numpy(torch.exp(policy_log_std)).mean()
+            '''
             if Qtrain == True:
                 self.eval_statistics['QFs Loss'] = np.mean(
                     ptu.get_numpy(qfs_loss)) / self.num_qs
@@ -258,7 +209,7 @@ class SACTrainer(TorchTrainer):
                         'Qs Targets',
                         ptu.get_numpy(q_target),
                     ))
-
+            '''
             self.eval_statistics['Policy Loss'] = np.mean(policy_loss)
 
 
@@ -282,10 +233,6 @@ class SACTrainer(TorchTrainer):
             if self.use_automatic_entropy_tuning:
                 self.eval_statistics['Alpha'] = alpha.item()
                 self.eval_statistics['Alpha Loss'] = alpha_loss.item()
-
-    def torch_average(self, torch_list):
-        out = torch.stack(torch_list)
-        return torch.mean(out, axis = 0)
 
     def try_update_target_networks(self):
         if self._num_train_steps % self.target_update_period == 0:
