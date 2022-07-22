@@ -117,6 +117,9 @@ class TorchTrainer(Trainer, metaclass=abc.ABCMeta):
 
     def get_policy(self):
         pass
+    
+    def add_qf_loss(self, loss):
+        pass
 
     def get_qfs(self):
         pass

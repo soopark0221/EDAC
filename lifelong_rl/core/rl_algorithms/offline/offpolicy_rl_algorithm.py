@@ -54,9 +54,11 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
     
     def _train(self):
         for epoch in range(self.num_epochs): 
+            curr_alpha_list = []
             for agent in self.trainer_list:  # TODO : check the first one
                 if hasattr(agent, 'log_alpha'):
                     curr_alpha = agent.log_alpha.exp()
+                    curr_alpha_list.append(curr_alpha)
                 else:
                     curr_alpha = None
             
@@ -90,11 +92,12 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                         policy_list.append(agent.get_policy()) 
                         qfs = agent.get_qfs()
                         target_qfs = agent.get_target_qfs()
-                    qfs, target_qfs = sac_qf.train_qfs(train_data, policy_list, qfs, target_qfs, curr_alpha)
+                    qfs, target_qfs, qfsloss = sac_qf.train_qfs(train_data, policy_list, qfs, target_qfs, sum(curr_alpha_list) / len(curr_alpha_list))
                     self.training_mode(False)
                     for agent in self.trainer_list:
                         agent.set_qfs(qfs)
                         agent.set_target_qfs(target_qfs)
+                        agent.add_qf_loss(qfsloss)
                         agent.try_update_target_networks()
 
                 gt.stamp('training',unique=False)

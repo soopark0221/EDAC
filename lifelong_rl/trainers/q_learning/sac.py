@@ -90,6 +90,8 @@ class SACTrainer(TorchTrainer):
         self._need_to_update_eval_statistics = True
         self.policy_eval_start = policy_eval_start
 
+        self.qfs_loss = []
+
     def get_policy(self):
         return self.policy
     
@@ -107,6 +109,10 @@ class SACTrainer(TorchTrainer):
 
     def set_qfs(self, qfs):
         self.qfs = qfs
+
+    
+    def get_qfs_loss(self, loss):
+        self.qfs_loss = loss
 
     def _get_tensor_values(self, obs, actions, network=None):
         action_shape = actions.shape[0]
@@ -184,55 +190,63 @@ class SACTrainer(TorchTrainer):
         policy_loss.backward()
         self.policy_optimizer.step()
 
+        policy_loss_list = [log_pi, q_new_actions, policy_log_std, policy_mean, alpha, alpha_loss]
+        # qfs_loss, grad_loss, qs_pred, q_target
+
         """
         Save some statistics for eval
         """
         if self._need_to_update_eval_statistics:
             self._need_to_update_eval_statistics = False
+            self.eval_stats(policy_loss_list, self.qfs_loss)
 
-            policy_loss = ptu.get_numpy(log_pi - q_new_actions).mean()
-            policy_avg_std = ptu.get_numpy(torch.exp(policy_log_std)).mean()
-            '''
-            if Qtrain == True:
-                self.eval_statistics['QFs Loss'] = np.mean(
-                    ptu.get_numpy(qfs_loss)) / self.num_qs
-                if self.eta > 0:
-                    self.eval_statistics['Q Grad Loss'] = np.mean(
-                        ptu.get_numpy(grad_loss))
-                self.eval_statistics.update(
-                create_stats_ordered_dict(
-                        'Qs Predictions',
-                        ptu.get_numpy(qs_pred),
-                    ))
-                self.eval_statistics.update(
-                    create_stats_ordered_dict(
-                        'Qs Targets',
-                        ptu.get_numpy(q_target),
-                    ))
-            '''
-            self.eval_statistics['Policy Loss'] = np.mean(policy_loss)
+    def eval_stats(self, policy_loss_list, qfs_loss_list):
+        log_pi, q_new_actions, policy_log_std, policy_mean, alpha, alpha_loss = policy_loss_list
+        if qfs_loss_list : 
+            qfs_loss, grad_loss, qs_pred, q_target = qfs_loss_list 
+        policy_loss = ptu.get_numpy(log_pi - q_new_actions).mean()
+        policy_avg_std = ptu.get_numpy(torch.exp(policy_log_std)).mean()
 
-
+        if self.qfs_loss:
+            self.eval_statistics['QFs Loss'] = np.mean(
+                ptu.get_numpy(qfs_loss)) / self.num_qs
+            if self.eta > 0:
+                self.eval_statistics['Q Grad Loss'] = np.mean(
+                    ptu.get_numpy(grad_loss))
             self.eval_statistics.update(
-                create_stats_ordered_dict(
-                    'Log Pis',
-                    ptu.get_numpy(log_pi),
+            create_stats_ordered_dict(
+                    'Qs Predictions',
+                    ptu.get_numpy(qs_pred),
                 ))
             self.eval_statistics.update(
                 create_stats_ordered_dict(
-                    'Policy mu',
-                    ptu.get_numpy(policy_mean),
+                    'Qs Targets',
+                    ptu.get_numpy(q_target),
                 ))
-            self.eval_statistics.update(
-                create_stats_ordered_dict(
-                    'Policy log std',
-                    ptu.get_numpy(policy_log_std),
-                ))
-            self.eval_statistics['Policy std'] = np.mean(policy_avg_std)
+        self.eval_statistics['Policy Loss'] = np.mean(policy_loss)
 
-            if self.use_automatic_entropy_tuning:
-                self.eval_statistics['Alpha'] = alpha.item()
-                self.eval_statistics['Alpha Loss'] = alpha_loss.item()
+        self.eval_statistics.update(
+            create_stats_ordered_dict(
+                'Log Pis',
+                ptu.get_numpy(log_pi),
+            ))
+        self.eval_statistics.update(
+            create_stats_ordered_dict(
+                'Policy mu',
+                ptu.get_numpy(policy_mean),
+            ))
+        self.eval_statistics.update(
+            create_stats_ordered_dict(
+                'Policy log std',
+                ptu.get_numpy(policy_log_std),
+            ))
+        self.eval_statistics['Policy std'] = np.mean(policy_avg_std)
+
+        if self.use_automatic_entropy_tuning:
+            self.eval_statistics['Alpha'] = alpha.item()
+            self.eval_statistics['Alpha Loss'] = alpha_loss.item()
+
+
 
     def try_update_target_networks(self):
         if self._num_train_steps % self.target_update_period == 0:
