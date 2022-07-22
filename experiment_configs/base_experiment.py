@@ -125,6 +125,10 @@ def experiment(
             eval_env,
             config['evaluation_policy'],
         )
+        expl_path_collector = MdpPathCollector(
+            expl_env,
+            config['exploration_policy'],
+        )
     """
     Finish timer
     """
@@ -138,6 +142,7 @@ def experiment(
     offline_algorithm = experiment_config['get_offline_algorithm'](
         config,
         eval_path_collector=eval_path_collector,
+        expl_path_collector=expl_path_collector,
     )
     offline_algorithm.to(ptu.device)
     offline_algorithm.train()

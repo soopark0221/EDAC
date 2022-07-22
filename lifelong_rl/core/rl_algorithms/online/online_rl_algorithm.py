@@ -63,6 +63,7 @@ class OnlineRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             gt.stamp('initial exploration', unique=False)
 
         num_trains_per_expl_step = self.num_trains_per_train_loop // self.num_expl_steps_per_train_loop
+        print(f'num trains per exlp step {num_trains_per_expl_step}')
         for epoch in gt.timed_for(
                 range(self._start_epoch, self.num_epochs),
                 save_itrs=True,
@@ -75,21 +76,30 @@ class OnlineRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             gt.stamp('evaluation sampling', unique=False)
 
             for _ in range(self.num_train_loops_per_epoch):
-                for _ in range(self.num_expl_steps_per_train_loop):
-                    s, a, r, d, ns, info = self.expl_data_collector.collect_one_step(
-                        self.max_path_length,
-                        discard_incomplete_paths=False,
+                new_expl_paths = self.expl_data_collector.collect_new_paths(
+                    self.max_path_length,
+                    self.num_expl_steps_per_train_loop,
+                    discard_incomplete_paths=False,
                     )
-                    gt.stamp('exploration sampling', unique=False)
+                gt.stamp('exploration sampling', unique=False)
+                self.replay_buffer.add_paths(new_expl_paths)
+                gt.stamp('data storing', unique=False)
 
-                    self.replay_buffer.add_sample(s, a, r, d, ns, env_info=info)
-                    gt.stamp('data storing', unique=False)
+                for _ in range(self.num_expl_steps_per_train_loop):
+
+                    #s, a, r, d, ns, info = self.expl_data_collector.collect_one_step(
+                    #    self.max_path_length,
+                    #    discard_incomplete_paths=False,
+                    #)
+                    #gt.stamp('exploration sampling', unique=False)
+                    #self.replay_buffer.add_sample(s, a, r, d, ns, env_info=info)
+                    #gt.stamp('data storing', unique=False)
 
                     self.training_mode(True)
                     for _ in range(num_trains_per_expl_step):
-                        train_data = self.replay_buffer.random_batch(
-                            self.batch_size)
-                        self.trainer.train(train_data)
+                        train_data, indices = self.replay_buffer.random_batch(
+                            self.batch_size, return_indices=True)
+                        self.trainer.train(train_data, indices)
                     gt.stamp('training', unique=False)
                     self.training_mode(False)
 

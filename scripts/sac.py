@@ -1,17 +1,24 @@
 from experiment_utils.launch_experiment import launch_experiment
+
+from experiment_configs.configs.q_learning.sac_config import get_config
+from experiment_configs.algorithms.online import get_algorithm
+
+from experiment_utils.launch_experiment import launch_experiment
 from experiment_configs.configs.q_learning.sac_config import get_config
 from experiment_configs.algorithms.offline import get_offline_algorithm
 
 import argparse
+import os 
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='SAC',
+        algorithm='Simple_SAC',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),
-        replay_buffer_size=int(2e6),
+        replay_buffer_size=int(1e6),
         reward_mean=False,  # added for easy config checking
         reward_std=-1.0,  # added for easy config checking
         policy_kwargs=dict(
@@ -32,10 +39,11 @@ def main(args):
             deterministic_backup=False,
             eta=-1.0,
         ),
-        offline_kwargs=dict(
+        algorithm_kwargs=dict(
             num_epochs=3000,
             num_eval_steps_per_epoch=1000,
             num_trains_per_train_loop=1000,
+            num_expl_steps_per_train_loop=1000,
             max_path_length=1000,
             batch_size=256,
             save_snapshot_freq=3000, # save last epoch
@@ -52,7 +60,7 @@ def main(args):
     variant['env_name'] = args.env_name
     variant['seed'] = args.seed
 
-    variant['offline_kwargs']['num_epochs'] = args.epoch
+    variant['algorithm_kwargs']['num_epochs'] = args.epoch
 
     # SAC-N
     variant['trainer_kwargs']['policy_lr'] = args.plr
@@ -95,7 +103,7 @@ def main(args):
     # Launch experiment
     launch_experiment(variant=variant,
                       get_config=get_config,
-                      get_offline_algorithm=get_offline_algorithm,
+                      get_offline_algorithm=get_algorithm,
                       **experiment_kwargs)
 
 
@@ -147,3 +155,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
+
+

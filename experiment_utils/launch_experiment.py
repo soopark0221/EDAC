@@ -7,6 +7,7 @@ def launch_experiment(
 
         # Experiment config
         get_config=None,
+        get_algorithm=None,
         get_offline_algorithm=None,
 
         # Misc arguments
