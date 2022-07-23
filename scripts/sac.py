@@ -1,7 +1,8 @@
 from experiment_utils.launch_experiment import launch_experiment
 
 from experiment_configs.configs.q_learning.sac_config import get_config
-from experiment_configs.algorithms.online import get_algorithm
+#from experiment_configs.algorithms.online import get_algorithm
+from experiment_configs.algorithms.batch import get_algorithm
 
 from experiment_utils.launch_experiment import launch_experiment
 from experiment_configs.configs.q_learning.sac_config import get_config
@@ -14,7 +15,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="3"
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='Simple_SAC',
+        algorithm='Simple_SAC_batchrl',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),

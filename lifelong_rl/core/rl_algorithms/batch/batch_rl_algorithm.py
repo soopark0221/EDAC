@@ -9,6 +9,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
     def __init__(
             self,
             trainer,
+            batch_size,
             exploration_policy,
             exploration_env,
             evaluation_env,
@@ -17,12 +18,12 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             replay_buffer,
             max_path_length,
             num_epochs,
-            num_eval_samples_per_epoch,
-            num_expl_samples_per_train_loop,
+            num_eval_steps_per_epoch,
+            num_expl_steps_per_train_loop,
             sample_mode='steps',
             num_trains_per_train_loop=1,
             num_train_loops_per_epoch=1,
-            min_num_samples_before_training=0,
+            min_num_steps_before_training=0,
             save_snapshot_freq=100,
             post_epoch_funcs=None,
     ):
@@ -42,16 +43,17 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.num_epochs = num_epochs
         self.num_trains_per_train_loop = num_trains_per_train_loop
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
-        self.num_eval_samples_per_epoch = num_eval_samples_per_epoch
-        self.num_expl_samples_per_train_loop = num_expl_samples_per_train_loop
-        self.min_num_samples_before_training = min_num_samples_before_training
+        self.num_eval_steps_per_epoch = num_eval_steps_per_epoch
+        self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
+        self.min_num_steps_before_training = min_num_steps_before_training
         self.sample_mode = sample_mode
+        self.batch_size = batch_size
 
     def _train(self):
-        if self.min_num_samples_before_training > 0:
+        if self.min_num_steps_before_training > 0:
             init_expl_paths = self.expl_data_collector.collect_new_paths(
                 self.max_path_length,
-                self.min_num_samples_before_training,
+                self.min_num_steps_before_training,
                 sample_mode=self.sample_mode,
                 discard_incomplete_paths=True,
             )
@@ -66,7 +68,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         ):
             self.eval_data_collector.collect_new_paths(
                 self.max_path_length,
-                self.num_eval_samples_per_epoch,
+                self.num_eval_steps_per_epoch,
                 sample_mode=self.sample_mode,
                 discard_incomplete_paths=True,
             )
@@ -75,7 +77,7 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             for _ in range(self.num_train_loops_per_epoch):
                 new_expl_paths = self.expl_data_collector.collect_new_paths(
                     self.max_path_length,
-                    self.num_expl_samples_per_train_loop,
+                    self.num_expl_steps_per_train_loop,
                     sample_mode=self.sample_mode,
                     discard_incomplete_paths=True,
                 )
@@ -86,7 +88,8 @@ class BatchRLAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
                 self.training_mode(True)
                 for _ in range(self.num_trains_per_train_loop):
-                    self.trainer.train_from_paths(new_expl_paths)
+                    train_data, indices = self.replay_buffer.random_batch(self.batch_size, return_indices=True)
+                    self.trainer.train(train_data, indices)
                 gt.stamp('training', unique=False)
                 self.training_mode(False)
 
