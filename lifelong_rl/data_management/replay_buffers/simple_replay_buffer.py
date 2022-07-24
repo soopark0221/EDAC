@@ -67,7 +67,6 @@ class SimpleReplayBuffer(ReplayBuffer):
 
     def add_sample(self, observation, action, reward, terminal,
                    next_observation, env_info, **kwargs):
-
         self._observations[self._top] = self.obs_preproc(observation)
         self._actions[self._top] = action
         self._rewards[self._top] = reward

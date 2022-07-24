@@ -112,7 +112,31 @@ class TorchTrainer(Trainer, metaclass=abc.ABCMeta):
             ('num train calls', self._num_train_steps),
         ])
 
-    def train_from_torch(self, batch):
+    def try_update_target_networks(self):
+        pass
+
+    def get_policy(self):
+        pass
+    
+    def add_qf_loss(self, loss):
+        pass
+
+    def get_qfs(self):
+        pass
+    
+    def get_alpha(self):
+        pass 
+
+    def get_target_qfs(self):
+        pass
+
+    def set_qfs(self, qfs):
+        pass
+
+    def set_target_qfs(self, target_qfs):
+        pass
+
+    def train_from_torch(self, batch, indices, Qmin, eta):
         pass
 
     @property

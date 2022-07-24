@@ -10,7 +10,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]="3"
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='SAC_2min', #'SAC_buffer_3agents_maxminmax_gym_expl1000_buffer_1M',
+        algorithm='SAC_sharedQ_pi_revised2', #'SAC_buffer_3agents_maxminmax_gym_expl1000_buffer_1M',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),
