@@ -21,7 +21,7 @@ class OfflineRLAlgorithm(object, metaclass=abc.ABCMeta):
             num_eval_steps_per_epoch,
             num_trains_per_train_loop,
             num_train_loops_per_epoch=1,
-            save_snapshot_freq=1000,
+            save_snapshot_freq=None,
     ):
         self.trainer = trainer
         self.eval_policy = evaluation_policy
@@ -41,6 +41,7 @@ class OfflineRLAlgorithm(object, metaclass=abc.ABCMeta):
         self.post_epoch_funcs = []
 
     def _train(self):
+
         for epoch in gt.timed_for(
                 range(self._start_epoch, self.num_epochs),
                 save_itrs=True,
@@ -77,7 +78,7 @@ class OfflineRLAlgorithm(object, metaclass=abc.ABCMeta):
         if self.save_snapshot_freq is not None and \
                 (epoch + 1) % self.save_snapshot_freq == 0:
             logger.save_itr_params(epoch + 1, snapshot, prefix='offline_itr')
-        gt.stamp('saving', unique=False)
+            gt.stamp('saving', unique=False)
 
         self._log_stats(epoch)
 
@@ -148,6 +149,7 @@ class OfflineRLAlgorithm(object, metaclass=abc.ABCMeta):
         """
         # time stamp logging early for csv format
         gt.stamp('logging', unique=False)
+        
         logger.record_dict(_get_epoch_timings())
         logger.record_tabular('Epoch', epoch)
         logger.dump_tabular(with_prefix=False, with_timestamp=False)

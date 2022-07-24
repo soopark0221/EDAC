@@ -10,6 +10,7 @@ from experiment_configs.algorithms.offline import get_offline_algorithm
 
 import argparse
 import os 
+import datetime
 os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def main(args):
@@ -77,11 +78,15 @@ def main(args):
     # EDAC
     variant['trainer_kwargs']['eta'] = args.eta
 
+    # offline data
+    variant["offline_fraction"]= args.offline
+
     # experiment name
-    experiment_kwargs['exp_postfix'] = ''
-    
-    exp_postfix = '_{}'.format(args.num_qs)
-    
+    experiment_kwargs['exp_postfix'] = ''    
+
+    exp_postfix = '_qfs{}'.format(args.num_qs)
+    exp_postfix= '_offline{}%'.format(int(args.offline*100))
+
     exp_postfix += '_plr{:.4f}_qlr{:.4f}'.format(args.plr, args.qlr)
     if variant['trainer_kwargs']['max_q_backup']:
         exp_postfix += '_maxq'
@@ -93,6 +98,8 @@ def main(args):
         exp_postfix += '_mean'
     if args.reward_std > 0:
         exp_postfix += '_std'
+    today=datetime.datetime.today()
+    exp_postfix+=f'_time{today.month}_{today.day}_{today.hour}:{today.minute}'
 
     experiment_kwargs['exp_postfix'] = exp_postfix
 
@@ -152,6 +159,12 @@ if __name__ == '__main__':
     parser.add_argument("--reward_std",
                         action='store_true',
                         help='normalize rewards to 1 std')
+
+    # using offline data
+    parser.add_argument("--offline",
+                        default=1.0,
+                        type=float,
+                        help='fraction of using offline data')
 
     args = parser.parse_args()
 

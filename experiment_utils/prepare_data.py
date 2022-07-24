@@ -3,18 +3,20 @@ import numpy as np
 import os
 from experiment_utils.utils import load_dataset
 import gym
+import random
 
-
-def load_hdf5(env, replay_buffer, args):
+def load_hdf5(env, replay_buffer, args, fraction):
     # filename = os.path.split(env.dataset_url)[-1]
     # h5path = os.path.join(D4RL_DIR, filename)
 
     refined_dataset = qlearning_dataset(env)
+    dataset_size=refined_dataset['observations'].shape[0]
 
-    observations = refined_dataset['observations']
-    next_obs = refined_dataset['next_observations']
-    actions = refined_dataset['actions']
-    rewards = np.expand_dims(np.squeeze(refined_dataset['rewards']), 1)
+    rand_indices=random.sample(range(dataset_size),int(dataset_size*fraction))
+    observations = refined_dataset['observations'][rand_indices]
+    next_obs = refined_dataset['next_observations'][rand_indices]
+    actions = refined_dataset['actions'][rand_indices]
+    rewards = np.expand_dims(np.squeeze(refined_dataset['rewards'][rand_indices]), 1)
 
     normalize_mean = True if args.get('reward_mean') else False
 
@@ -39,7 +41,7 @@ def load_hdf5(env, replay_buffer, args):
     print('max: {:.4f}'.format(rewards.max()))
     print('min: {:.4f}'.format(rewards.min()))
 
-    terminals = np.expand_dims(np.squeeze(refined_dataset['terminals']), 1)
+    terminals = np.expand_dims(np.squeeze(refined_dataset['terminals'][rand_indices]), 1)
     dataset_size = observations.shape[0]
 
 

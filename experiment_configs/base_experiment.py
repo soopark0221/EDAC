@@ -89,7 +89,8 @@ def experiment(
     """
     Import offline data from d4rl
     """
-    load_hdf5(expl_env, replay_buffer, data_args)
+    if variant['offline_fraction'] >0:
+        load_hdf5(expl_env, replay_buffer, data_args, variant['offline_fraction'])
     obs_dim = replay_buffer.obs_dim()
     """
     Experiment-specific configuration

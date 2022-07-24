@@ -14,6 +14,8 @@ def _get_epoch_timings():
     for key in sorted(times_itrs):
         time = times_itrs[key][-1]
         epoch_time += time
+        if key=='logging':
+            continue
         times['time/{} (s)'.format(key)] = time
     times['time/epoch (s)'] = epoch_time
     times['time/total (s)'] = gt.get_times().total
