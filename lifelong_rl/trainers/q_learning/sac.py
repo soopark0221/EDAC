@@ -163,49 +163,49 @@ class SACTrainer(TorchTrainer):
         QF Loss
         """
         # (num_qs, batch_size, output_size)
-        if Qtrain == True:
-            qs_pred = self.qfs(obs, actions)
-            new_next_actions, _, _, new_log_pi, *_ = self.policy(
-                next_obs,
-                reparameterize=False,
-                return_log_prob=True,
-            )
+        qs_pred = self.qfs(obs, actions)
 
-            if not self.max_q_backup:
-                target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
+        new_next_actions, _, _, new_log_pi, *_ = self.policy(
+            next_obs,
+            reparameterize=False,
+            return_log_prob=True,
+        )
 
-                if not self.deterministic_backup:
-                    target_q_values -= alpha * new_log_pi
-            else:
-                # if self.max_q_backup
-                next_actions_temp, _ = self._get_policy_actions(
-                    next_obs, num_actions=10, network=self.policy)
-                target_q_values = self._get_tensor_values(
-                    next_obs, next_actions_temp,
-                    network=self.qfs).max(2)[0].min(0)[0]
+        if not self.max_q_backup:
+            target_q_values = self.target_qfs.sample(next_obs, new_next_actions)
 
-            future_values = (1. - terminals) * self.discount * target_q_values
-            q_target = self.reward_scale * rewards + future_values
-            qfs_loss = self.qf_criterion(qs_pred, q_target.detach().unsqueeze(0))
-            qfs_loss = qfs_loss.mean(dim=(1, 2)).sum()
+            if not self.deterministic_backup:
+                target_q_values -= alpha * new_log_pi
+        else:
+            # if self.max_q_backup
+            next_actions_temp, _ = self._get_policy_actions(
+                next_obs, num_actions=10, network=self.policy)
+            target_q_values = self._get_tensor_values(
+                next_obs, next_actions_temp,
+                network=self.qfs).max(2)[0].min(0)[0]
 
-            qfs_loss_total = qfs_loss
+        future_values = (1. - terminals) * self.discount * target_q_values
+        q_target = self.reward_scale * rewards + future_values
+        qfs_loss = self.qf_criterion(qs_pred, q_target.detach().unsqueeze(0))
+        qfs_loss = qfs_loss.mean(dim=(1, 2)).sum()
+
+        qfs_loss_total = qfs_loss
+        
+        if self.eta > 0:
+            obs_tile = obs.unsqueeze(0).repeat(self.num_qs, 1, 1)
+            actions_tile = actions.unsqueeze(0).repeat(self.num_qs, 1, 1).requires_grad_(True)
+            qs_preds_tile = self.qfs(obs_tile, actions_tile)
+            qs_pred_grads, = torch.autograd.grad(qs_preds_tile.sum(), actions_tile, retain_graph=True, create_graph=True)
+            qs_pred_grads = qs_pred_grads / (torch.norm(qs_pred_grads, p=2, dim=2).unsqueeze(-1) + 1e-10)
+            qs_pred_grads = qs_pred_grads.transpose(0, 1)
             
-            if self.eta > 0:
-                obs_tile = obs.unsqueeze(0).repeat(self.num_qs, 1, 1)
-                actions_tile = actions.unsqueeze(0).repeat(self.num_qs, 1, 1).requires_grad_(True)
-                qs_preds_tile = self.qfs(obs_tile, actions_tile)
-                qs_pred_grads, = torch.autograd.grad(qs_preds_tile.sum(), actions_tile, retain_graph=True, create_graph=True)
-                qs_pred_grads = qs_pred_grads / (torch.norm(qs_pred_grads, p=2, dim=2).unsqueeze(-1) + 1e-10)
-                qs_pred_grads = qs_pred_grads.transpose(0, 1)
-                
-                qs_pred_grads = torch.einsum('bik,bjk->bij', qs_pred_grads, qs_pred_grads)
-                masks = torch.eye(self.num_qs, device=ptu.device).unsqueeze(dim=0).repeat(qs_pred_grads.size(0), 1, 1)
-                qs_pred_grads = (1 - masks) * qs_pred_grads
-                grad_loss = torch.mean(torch.sum(qs_pred_grads, dim=(1, 2))) / (self.num_qs - 1)
-                
-                #qfs_loss_total += self.eta * grad_loss
-                qfs_loss_total += eta * grad_loss
+            qs_pred_grads = torch.einsum('bik,bjk->bij', qs_pred_grads, qs_pred_grads)
+            masks = torch.eye(self.num_qs, device=ptu.device).unsqueeze(dim=0).repeat(qs_pred_grads.size(0), 1, 1)
+            qs_pred_grads = (1 - masks) * qs_pred_grads
+            grad_loss = torch.mean(torch.sum(qs_pred_grads, dim=(1, 2))) / (self.num_qs - 1)
+            
+            #qfs_loss_total += self.eta * grad_loss
+            qfs_loss_total += eta * grad_loss
 
         if self.use_automatic_entropy_tuning and not self.deterministic_backup:
             self.alpha_optimizer.zero_grad()
@@ -216,10 +216,9 @@ class SACTrainer(TorchTrainer):
         policy_loss.backward()
         self.policy_optimizer.step()
 
-        if Qtrain == True:
-            self.qfs_optimizer.zero_grad()
-            qfs_loss_total.backward()
-            self.qfs_optimizer.step()
+        self.qfs_optimizer.zero_grad()
+        qfs_loss_total.backward()
+        self.qfs_optimizer.step()
 
         self.try_update_target_networks()
         """

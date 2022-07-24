@@ -52,49 +52,69 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
 
     def _train(self):
         for epoch in range(self.num_epochs): 
+                # gt.timed_for(
+                # range(self._start_epoch, self.num_epochs),
+                # save_itrs=True,
+                # ):
+            '''
+            if epoch == 0 and self.min_num_steps_before_training > 0:
+                init_expl_paths = self.expl_data_collector.collect_new_paths(
+                self.max_path_length,
+                self.min_num_steps_before_training,
+                discard_incomplete_paths=False,
+                )
+                self.replay_buffer.add_paths(init_expl_paths)
+                self.expl_data_collector.end_epoch(-1) 
+            self.eval_data_collector.collect_new_paths(
+                max_path_length=self.max_path_length,
+                num_samples=self.num_eval_steps_per_epoch,
+                discard_incomplete_paths=True,
+                alpha=curr_alpha,
+            )
+            '''
             for agent in self.trainer_list:  # TODO : check the first one
                 if hasattr(agent, 'log_alpha'):
                     curr_alpha = agent.log_alpha.exp()
                 else:
                     curr_alpha = None
-            
+
             eta = 1.0*(0.7**(epoch / self.num_epochs))
+            for i in gt.timed_for(              
+                range(len(self.trainer_list)),
+                save_itrs=True,  ):
+                agent=self.trainer_list[i]      # LOG for each trainer        
+                # enumerate(self.trainer_list):
+                
+                self.eval_data_collector_list[i].collect_new_paths(
+                max_path_length=self.max_path_length,
+                num_samples=self.num_eval_steps_per_epoch,
+                discard_incomplete_paths=True,
+                alpha=curr_alpha,
+                )
+                gt.stamp('evaluation sampling',unique=False)
+                Qmin = True if i//2==0 else False # min-max-min
 
-            for _ in range(self.num_train_loops_per_epoch):
-                gt.stamp('data storing',unique=False)
-                for j in range(self.num_trains_per_train_loop):
-                    train_data, indices = self.replay_buffer.random_batch(
-                        self.batch_size, return_indices=True)
-                    Qmin = True
+                for _ in range(self.num_train_loops_per_epoch):
+                    new_expl_paths = self.expl_data_collector_list[i].collect_new_paths(
+                    self.max_path_length,
+                    self.num_expl_steps_per_train_loop,
+                    discard_incomplete_paths=False,
+                    )
+                    gt.stamp('exploration sampling',unique=False)
+                    
+                    #print(f' replay buffer {self.replay_buffer}')
+                    #print(f' new expl path is {new_expl_paths}')
+                    self.replay_buffer.add_paths(new_expl_paths)
+                    gt.stamp('data storing',unique=False)
                     self.training_mode(True)
-                    for i in gt.timed_for(range(len(self.trainer_list)), save_itrs=True,  ):
-                        if j == 0:
-                            new_expl_paths = self.expl_data_collector_list[i].collect_new_paths(
-                                self.max_path_length,
-                                self.num_expl_steps_per_train_loop,
-                                discard_incomplete_paths=False,
-                                )
-                            gt.stamp('exploration sampling',unique=False)
-                            self.replay_buffer.add_paths(new_expl_paths)
-                            self.eval_data_collector_list[i].collect_new_paths(
-                                max_path_length=self.max_path_length,
-                                num_samples=self.num_eval_steps_per_epoch,
-                                discard_incomplete_paths=True,
-                                alpha=curr_alpha,
-                                )         
-                        agent=self.trainer_list[i]      # LOG for each trainer             
-                        Qmin = True if i//2==0 else False # min-max-min           
-                        Qtrain = True if i == len(self.trainer_list)-1 else False
-                        agent.train(train_data, indices, Qmin=Qmin, eta=eta, Qtrain=Qtrain)        
-                        #agent.train_policy(train_data, indices, Qmin=Qmin, eta=eta)
-                    #self.trainer_list[0].train_qf(train_data, indices, Qmin=True, eta=eta)
-                    #for i in range(len(self.trainer_list)):
-                    #    self.trainer_list[i].train_main()
+                    for _ in range(self.num_trains_per_train_loop):
+                        train_data, indices = self.replay_buffer.random_batch(
+                            self.batch_size, return_indices=True)
+                        agent.train(train_data, indices, Qmin=Qmin, eta=eta)
                     self.training_mode(False)
+                    gt.stamp('training',unique=False)
+                self._end_epoch(epoch, agent, self.eval_data_collector_list[i], self.expl_data_collector_list[i])
 
-                gt.stamp('training',unique=False)
-            for i in range(len(self.trainer_list)):
-                self._end_epoch(epoch, self.trainer_list[i], self.eval_data_collector_list[i], self.expl_data_collector_list[i])                
     def train(self, start_epoch=0):
         self._start_epoch = start_epoch
         self._train()
