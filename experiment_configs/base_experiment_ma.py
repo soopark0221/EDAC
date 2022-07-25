@@ -73,7 +73,7 @@ def experiment(
     """
     Environment setup
     """
-    expl_env, env_infos = make_env(variant['env_name'], offline=variant['offline'],
+    expl_env, env_infos = make_env(variant['env_name'], offline=variant['offline_fraction'],
                                     **variant.get('env_kwargs', {}))
 
     obs_dim = get_dim(expl_env.observation_space)
@@ -86,13 +86,15 @@ def experiment(
         replay_buffer = EnvReplayBuffer(variant['replay_buffer_size'],
                                         expl_env)
 
-    eval_env, _ = make_env(variant['env_name'], offline=variant['offline'],
+    eval_env, _ = make_env(variant['env_name'], offline=variant['offline_fraction'],
                            **variant.get('env_kwargs', {}))
     """
     Import offline data from d4rl
     """
-    if variant['offline'] is True:
-        load_hdf5(expl_env, replay_buffer, data_args)
+    #if variant['offline'] is True:
+    #    load_hdf5(expl_env, replay_buffer, data_args)
+    if variant['offline_fraction'] >0:
+        load_hdf5(expl_env, replay_buffer, data_args, variant['offline_fraction'])
     obs_dim = replay_buffer.obs_dim()
     """
     Experiment-specific configuration

@@ -114,7 +114,7 @@ class SACTrainer(TorchTrainer):
         return new_obs_actions.detach(), new_obs_log_pi.view(
             obs.shape[0], num_actions, 1).detach()
 
-    def train_from_torch(self, batch, indices, Qmin=True, eta=1.0, Qtrain=False):
+    def train_from_torch(self, batch, indices, Qmin=True, eta=1.0):
         obs= batch['observations']
         next_obs = batch['next_observations']
         actions = batch['actions']
@@ -229,22 +229,21 @@ class SACTrainer(TorchTrainer):
 
             policy_loss = ptu.get_numpy(log_pi - q_new_actions).mean()
             policy_avg_std = ptu.get_numpy(torch.exp(policy_log_std)).mean()
-            if Qtrain == True:
-                self.eval_statistics['QFs Loss'] = np.mean(
-                    ptu.get_numpy(qfs_loss)) / self.num_qs
-                if self.eta > 0:
-                    self.eval_statistics['Q Grad Loss'] = np.mean(
-                        ptu.get_numpy(grad_loss))
-                self.eval_statistics.update(
+            self.eval_statistics['QFs Loss'] = np.mean(
+                ptu.get_numpy(qfs_loss)) / self.num_qs
+            if self.eta > 0:
+                self.eval_statistics['Q Grad Loss'] = np.mean(
+                    ptu.get_numpy(grad_loss))
+            self.eval_statistics.update(
+            create_stats_ordered_dict(
+                    'Qs Predictions',
+                    ptu.get_numpy(qs_pred),
+                ))
+            self.eval_statistics.update(
                 create_stats_ordered_dict(
-                        'Qs Predictions',
-                        ptu.get_numpy(qs_pred),
-                    ))
-                self.eval_statistics.update(
-                    create_stats_ordered_dict(
-                        'Qs Targets',
-                        ptu.get_numpy(q_target),
-                    ))
+                    'Qs Targets',
+                    ptu.get_numpy(q_target),
+                ))
 
             self.eval_statistics['Policy Loss'] = np.mean(policy_loss)
 

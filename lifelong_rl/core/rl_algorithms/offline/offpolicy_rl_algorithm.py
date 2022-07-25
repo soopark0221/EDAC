@@ -26,7 +26,7 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
             num_eval_steps_per_epoch,
             num_trains_per_train_loop,
             num_train_loops_per_epoch=1,
-            save_snapshot_freq=1000,
+            save_snapshot_freq=None, #1000,
     ):
         self.trainer_list = trainer_list  # list
         self.eval_policy_list = evaluation_policy_list  # list
@@ -126,7 +126,7 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
             if self.save_snapshot_freq is not None and \
                     (epoch + 1) % self.save_snapshot_freq == 0:
                 logger.save_itr_params(epoch + 1, snapshot[k], prefix='offline_itr')
-            gt.stamp('saving',unique=False)
+                gt.stamp('saving',unique=False)
 
         self._log_stats(epoch, agent, eval_data_collector, expl_data_collector)
 
