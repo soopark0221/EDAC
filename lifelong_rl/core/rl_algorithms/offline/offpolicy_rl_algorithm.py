@@ -92,8 +92,8 @@ class OffpolicyRLAlgorithm(object, metaclass=abc.ABCMeta):
                 alpha=curr_alpha,
                 )
                 gt.stamp('evaluation sampling',unique=False)
-                Qmin = True if i//2==0 else False # min-max-min
-
+                Qmin = True if i%2==0 else False # min-max-min
+                
                 for _ in range(self.num_train_loops_per_epoch):
                     new_expl_paths = self.expl_data_collector_list[i].collect_new_paths(
                     self.max_path_length,

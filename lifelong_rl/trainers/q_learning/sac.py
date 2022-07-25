@@ -114,7 +114,7 @@ class SACTrainer(TorchTrainer):
         return new_obs_actions.detach(), new_obs_log_pi.view(
             obs.shape[0], num_actions, 1).detach()
 
-    def train_from_torch(self, batch, indices, Qmin=True, eta=1.0):
+    def train_from_torch(self, batch, indices, Qmin, eta=1.0):
         obs= batch['observations']
         next_obs = batch['next_observations']
         actions = batch['actions']
