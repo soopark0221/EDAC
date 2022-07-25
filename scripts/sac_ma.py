@@ -76,11 +76,13 @@ def main(args):
     # MA
     variant['offline']=args.offline
     variant['num_agents']=args.num_agents
+    variant['offline_fraction']=args.offline
 
     # experiment name
     experiment_kwargs['exp_postfix'] = ''
     
     exp_postfix = '_{}qfs'.format(args.num_qs)
+    exp_postfix='_offline{}%'.format(int(args.offline*100))
     
     #learning rate 
     #exp_postfix += '_plr{:.4f}_qlr{:.4f}'.format(args.plr, args.qlr)
@@ -151,7 +153,11 @@ if __name__ == '__main__':
                         default=-1.0,
                         type=float,
                         help='eta for diversifying Q-ensemble. < 0 for SAC-N.')
-    
+    parser.add_argument('--offline',
+                        default=1.0,
+                        type=float,
+                        help='fraction of offline data')
+
     # reward preprocessing
     parser.add_argument("--reward_mean",
                         action='store_true',
@@ -165,9 +171,10 @@ if __name__ == '__main__':
                         type=int,
                         help='number of agents')
     # offline dataset (d4rl)
-    parser.add_argument("--offline",
-                        default=True,
-                        help='use offline data')
+parser.add_argument('--offline',
+                        default=1.0,
+                        type=float,
+                        help='fraction of offline data')
     # replay buffer
     parser.add_argument("--buffer_size",
                         default=int(1e6),
