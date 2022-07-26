@@ -187,7 +187,7 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
 
         tanh_normal = TanhNormal(mean, std)
         log_prob = tanh_normal.log_prob(value=actions, pre_tanh_value=raw_actions)
-        return log_prob.sum(-1)
+        return log_prob.sum(dim=1, keepdim=True)
 
     def get_param_values(self):
         params = np.concatenate([p.contiguous().view(-1).cpu().data.numpy() for p in self.trainable_params])

@@ -1,7 +1,7 @@
 from lifelong_rl.models.networks import ParallelizedEnsembleFlattenMLP
 #from lifelong_rl.policies.base.base import MakeDeterministic
 from lifelong_rl.policies.models.tanh_gaussian_policy import TanhGaussianPolicy
-from lifelong_rl.trainers.q_learning.sac import SACTrainer
+from lifelong_rl.trainers.q_learning.q_sharing import SharedQTrainer
 import lifelong_rl.util.pythonplusplus as ppp
 import os
 import torch
@@ -61,7 +61,7 @@ def get_config(
     Policy construction
     """
 
-    num_qs = variant['trainer_kwargs']['num_qs']
+    num_qs = variant['qfs_kwargs']['num_qs']
     M = variant['policy_kwargs']['layer_size']
     num_q_layers = variant['policy_kwargs']['num_q_layers']
     num_p_layers = variant['policy_kwargs']['num_p_layers']
@@ -89,7 +89,7 @@ def get_config(
         )
         policy_list.append(policy)
 
-        trainer = SACTrainer(
+        trainer = SharedQTrainer(
             env=eval_env,
             policy=policy,
             qfs=qfs,
@@ -116,6 +116,8 @@ def get_config(
             exploration_env=expl_env,
             evaluation_env=eval_env,
             replay_buffer=replay_buffer,  # XXX double check: using the same replay_buffer
+            qfs=qfs,
+            target_qfs=target_qfs
         ))
     config['algorithm_kwargs'] = variant.get('algorithm_kwargs', dict())
 

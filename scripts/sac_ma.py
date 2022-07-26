@@ -5,12 +5,12 @@ from experiment_configs.algorithms.offpolicy import get_offpolicy_algorithm
 import argparse
 import os 
 import datetime
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 def main(args):
     # Default parameters
     variant = dict(
-        algorithm='SAC_sharedQ', #'SAC_buffer_3agents_maxminmax_gym_expl1000_buffer_1M',
+        algorithm='SAC_sharedQ_avg', #'SAC_buffer_3agents_maxminmax_gym_expl1000_buffer_1M',
         collector_type='step',
         env_name='hopper-random-v2',
         env_kwargs=dict(),
@@ -24,23 +24,26 @@ def main(args):
         ),
         trainer_kwargs=dict(
             discount=0.99,
-            soft_target_tau=5e-3,
             policy_lr=3e-4,
-            qf_lr=3e-4,
             use_automatic_entropy_tuning=True,
-            policy_eval_start=0,
+            deterministic_backup=False,
+        ),
+        qfs_kwargs=dict(
+            discount=0.99,
+            soft_target_tau=5e-3,
+            qf_lr=3e-4,
             num_qs=10,
             target_update_period=1,
-            max_q_backup=False,
             deterministic_backup=False,
             eta=-1.0,
+            reward_scale=1.0
+            # max_q_backup=False
         ),
         offline_kwargs=dict(
             num_epochs=3000,
-            num_eval_steps_per_epoch=1000, #1000
+            num_eval_steps_per_epoch=1000,
             num_trains_per_train_loop=1000,
             num_expl_steps_per_train_loop=1000,
-            min_num_steps_before_training=1000,
             max_path_length=1000,
             batch_size=256,
             save_snapshot_freq=3000, # save last epoch
@@ -61,20 +64,21 @@ def main(args):
 
     # SAC-N
     variant['trainer_kwargs']['policy_lr'] = args.plr
-    variant['trainer_kwargs']['qf_lr'] = args.qlr
+    variant['qfs_kwargs']['qf_lr'] = args.qlr
 
-    variant['trainer_kwargs']['num_qs'] = args.num_qs
-    variant['trainer_kwargs']['max_q_backup'] = args.max_q_backup
+    variant['qfs_kwargs']['num_qs'] = args.num_qs
+
+    # variant['qfs_kwargs']['max_q_backup'] = args.max_q_backup
     variant['trainer_kwargs']['deterministic_backup'] = args.deterministic_backup
+    variant['qfs_kwargs']['deterministic_backup'] = args.deterministic_backup
 
     variant['reward_mean'] = args.reward_mean
     variant['reward_std'] = args.reward_std
     
     # EDAC
-    variant['trainer_kwargs']['eta'] = args.eta
+    variant['qfs_kwargs']['eta'] = args.eta
 
     # MA
-    variant['offline']=args.offline
     variant['num_agents']=args.num_agents
     variant['offline_fraction']=args.offline
 
@@ -89,8 +93,8 @@ def main(args):
     exp_postfix += f'_{args.num_agents}agents'
     # exp_postfix += f'_buffer{variant["replay_buffer_size"]} # not that crucial info?
     exp_postfix += f'_offline{args.offline}'    # rather
-    if variant['trainer_kwargs']['max_q_backup']:
-        exp_postfix += '_maxq'
+    # if variant['qfs_kwargs']['max_q_backup']:
+    #     exp_postfix += '_maxq'
     if variant['trainer_kwargs']['deterministic_backup']:
         exp_postfix += '_detq'
     if args.eta > 0:
@@ -100,7 +104,7 @@ def main(args):
     if args.reward_std > 0:
         exp_postfix += '_std'
     today=datetime.datetime.today()
-    exp_postfix+=f'_time_{today.month}_{today.day}_{today.hour+9}:{today.minute}' # to avoid overwriting, time=KST
+    exp_postfix+=f'_time_{today.month}_{today.day}_{today.hour}:{today.minute}' # to avoid overwriting
 
     experiment_kwargs['exp_postfix'] = exp_postfix
 
@@ -125,11 +129,13 @@ if __name__ == '__main__':
                         '--env_name',
                         default='halfcheetah-random-v2',
                         type=str)
+
     parser.add_argument('--seed', default=0, type=int)
     # Misc arguments
     parser.add_argument('--use_cpu', action='store_true')
     parser.add_argument('--log_to_tensorboard', action='store_true')
     parser.add_argument("--epoch", default=3000, type=int)
+
     # SAC
     parser.add_argument("--plr",
                         default=3e-4,
@@ -143,9 +149,9 @@ if __name__ == '__main__':
                         default=10,
                         type=int,
                         help='number of Q-functions to be used')
-    parser.add_argument('--max_q_backup',
-                        action='store_true',
-                        help='use max q backup')
+    # parser.add_argument('--max_q_backup',
+    #                     action='store_true',
+    #                     help='use max q backup')
     parser.add_argument('--deterministic_backup',
                         action='store_true',
                         help='use deterministic backup')
@@ -153,10 +159,7 @@ if __name__ == '__main__':
                         default=-1.0,
                         type=float,
                         help='eta for diversifying Q-ensemble. < 0 for SAC-N.')
-    parser.add_argument('--offline',
-                        default=1.0,
-                        type=float,
-                        help='fraction of offline data')
+
 
     # reward preprocessing
     parser.add_argument("--reward_mean",
@@ -170,17 +173,18 @@ if __name__ == '__main__':
                         default=2,
                         type=int,
                         help='number of agents')
-    # offline dataset (d4rl)
-parser.add_argument('--offline',
-                        default=1.0,
-                        type=float,
-                        help='fraction of offline data')
+
     # replay buffer
     parser.add_argument("--buffer_size",
                         default=int(1e6),
                         type=int,
                         help='buffer_size')
     
+    parser.add_argument("--offline",
+                        default=1.0,
+                        type=float,
+                        help='fraction of offline data')
+
     args = parser.parse_args()
 
     main(args)

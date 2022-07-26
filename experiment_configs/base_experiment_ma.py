@@ -73,7 +73,7 @@ def experiment(
     """
     Environment setup
     """
-    expl_env, env_infos = make_env(variant['env_name'], offline=variant['offline'],
+    expl_env, env_infos = make_env(variant['env_name'],
                                     **variant.get('env_kwargs', {}))
 
     obs_dim = get_dim(expl_env.observation_space)
@@ -86,7 +86,7 @@ def experiment(
         replay_buffer = EnvReplayBuffer(variant['replay_buffer_size'],
                                         expl_env)
 
-    eval_env, _ = make_env(variant['env_name'], offline=variant['offline'],
+    eval_env, _ = make_env(variant['env_name'],
                            **variant.get('env_kwargs', {}))
     """
     Import offline data from d4rl
@@ -110,6 +110,8 @@ def experiment(
         config['algorithm_kwargs'] = variant.get('algorithm_kwargs', dict())
     if 'offline_kwargs' not in config:
         config['offline_kwargs'] = variant.get('offline_kwargs', dict())
+    config['offline_kwargs'].update(variant.get('qfs_kwargs',dict()))
+    
     """
     Path collectors for sampling from environment
     """
